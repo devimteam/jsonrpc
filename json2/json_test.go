@@ -90,9 +90,9 @@ type Service1 struct {
 
 const Service1DefaultResponse = 9999
 
-func (t *Service1) Multiply(
-	req *Service1Request,
-	res *Service1Response) *jsonrpc.Error {
+func (t *Service1) Multiply(req *Service1Request) (*Service1Response, error) {
+	res := &Service1Response{}
+
 	if req.A == 0 && req.B == 0 {
 		// Sentinel value for test with no params.
 		res.Result = Service1DefaultResponse
@@ -100,13 +100,11 @@ func (t *Service1) Multiply(
 		res.Result = req.A * req.B
 	}
 
-	return nil
+	return res, nil
 }
 
-func (t *Service1) ResponseError(
-	req *Service1Request,
-	res *Service1Response) *jsonrpc.Error {
-	return ErrResponseError
+func (t *Service1) ResponseError(req *Service1Request) (*Service1Response, error) {
+	return nil, ErrResponseError
 }
 
 func execute(

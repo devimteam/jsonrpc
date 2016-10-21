@@ -12,7 +12,7 @@ import (
 
 var (
 	// Precompute the reflect.Type of error and http.Request
-	typeOfError   = reflect.TypeOf((**Error)(nil)).Elem()
+	typeOfError   = reflect.TypeOf((*error)(nil)).Elem()
 	typeOfRequest = reflect.TypeOf((*http.Request)(nil)).Elem()
 )
 
@@ -28,10 +28,9 @@ type service struct {
 }
 
 type serviceMethod struct {
-	method      reflect.Method // receiver method
-	argsType    reflect.Type   // type of the request argument
-	replyType   reflect.Type   // type of the response argument
-	paramOffset int
+	method    reflect.Method // receiver method
+	argsType  []reflect.Type // type of the request argument
+	replyType reflect.Type   // type of the response argument
 }
 
 // ----------------------------------------------------------------------------
@@ -68,56 +67,37 @@ func (m *serviceMap) register(rcvr interface{}, name string) error {
 		method := s.rcvrType.Method(i)
 		mtype := method.Type
 
-		// offset the parameter indexes by one if the
-		// service methods accept an HTTP request pointer
-		paramOffset := 1
-
 		// Method must be exported.
 		if method.PkgPath != "" {
 			continue
 		}
 
-		// First argument must be a pointer and must be http.Request.
-		reqType := mtype.In(1)
+		var args []reflect.Type
 
-		if reqType.Kind() != reflect.Ptr || reqType.Elem() != typeOfRequest {
-			paramOffset = 0
+		numIn := mtype.NumIn()
+
+		for i := 1; i < numIn; i++ {
+			arg := mtype.In(i)
+
+			if arg.Kind() != reflect.Ptr || !isExportedOrBuiltin(arg) {
+				continue
+			}
+
+			args = append(args, arg.Elem())
 		}
 
-		// Method needs four ins: receiver, *http.Request (optional), *args, *reply.
-		if mtype.NumIn() != (3 + paramOffset) {
+		// Method needs two out: mixed, error.
+		if mtype.NumOut() != 2 {
 			continue
 		}
 
-		// Second argument must be a pointer and must be exported.
-		args := mtype.In(1 + paramOffset)
-
-		if args.Kind() != reflect.Ptr || !isExportedOrBuiltin(args) {
-			continue
-		}
-
-		// Third argument must be a pointer and must be exported.
-		reply := mtype.In(2 + paramOffset)
-
-		if reply.Kind() != reflect.Ptr || !isExportedOrBuiltin(reply) {
-			continue
-		}
-
-		// Method needs one out: jsonrpc.Error.
-		if mtype.NumOut() != 1 {
-			continue
-		}
-
-		if returnType := mtype.Out(0); returnType.Kind() != reflect.Ptr ||
-			returnType != typeOfError {
+		if returnType := mtype.Out(1); returnType != typeOfError {
 			continue
 		}
 
 		s.methods[method.Name] = &serviceMethod{
-			method:      method,
-			argsType:    args.Elem(),
-			replyType:   reply.Elem(),
-			paramOffset: paramOffset,
+			method:   method,
+			argsType: args,
 		}
 	}
 

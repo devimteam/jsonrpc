@@ -20,11 +20,8 @@ type Service1 struct {
 
 func (t *Service1) Multiply(
 	r *http.Request,
-	req *Service1Request,
-	res *Service1Response) *Error {
-	res.Result = req.A * req.B
-
-	return nil
+	req *Service1Request) (*Service1Response, error) {
+	return &Service1Response{Result: req.A * req.B}, nil
 }
 
 type Service2 struct {
@@ -90,7 +87,7 @@ func (r MockCodecRequest) WriteResponse(w http.ResponseWriter, reply interface{}
 	w.Write([]byte(strconv.Itoa(res.Result)))
 }
 
-func (r MockCodecRequest) WriteError(w http.ResponseWriter, status int, err *Error) {
+func (r MockCodecRequest) WriteError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 	w.Write([]byte(err.Error()))
 }

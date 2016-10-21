@@ -166,12 +166,22 @@ func (c *CodecRequest) WriteResponse(w http.ResponseWriter, reply interface{}) {
 	c.writeServerResponse(w, res)
 }
 
-func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err *jsonrpc.Error) {
+func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) {
+	jsonErr, ok := err.(*jsonrpc.Error)
+
+	if !ok {
+		jsonErr = &jsonrpc.Error{
+			Code:    jsonrpc.E_SERVER,
+			Message: err.Error(),
+		}
+	}
+
 	res := &serverResponse{
 		Version: Version,
-		Error:   err,
+		Error:   jsonErr,
 		Id:      c.request.Id,
 	}
+
 	c.writeServerResponse(w, res)
 }
 
