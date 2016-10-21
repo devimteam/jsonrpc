@@ -29,8 +29,18 @@ type Error struct {
 	Data interface{} `json:"data,omitempty"`
 }
 
-func NewError(code ErrorCode, message string) *Error {
-	return &Error{Code: code, Message: message}
+func NewError(code ErrorCode, message interface{}) *Error {
+	strErr, ok := message.(string)
+
+	if !ok {
+		err, ok := message.(error)
+
+		if ok {
+			strErr = err.Error()
+		}
+	}
+
+	return &Error{Code: code, Message: strErr}
 }
 
 func (e *Error) Error() string {
