@@ -26,7 +26,7 @@ type CodecRequest interface {
 	// Writes the response using the RPC method reply.
 	WriteResponse(http.ResponseWriter, interface{})
 	// Writes an error produced by the server.
-	WriteError(w http.ResponseWriter, status int, err *Error)
+	WriteError(w http.ResponseWriter, status int, err error)
 }
 
 // ----------------------------------------------------------------------------
@@ -122,7 +122,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	method, errMethod := codecReq.Method()
 
 	if errMethod != nil {
-		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errMethod.Error()))
+		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errMethod))
 
 		return
 	}
@@ -130,40 +130,39 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceSpec, methodSpec, errGet := s.services.get(method)
 
 	if errGet != nil {
-		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errGet.Error()))
+		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errGet))
 
 		return
 	}
+
+	refValue := []reflect.Value{serviceSpec.rcvr}
 
 	// Decode the args.
-	args := reflect.New(methodSpec.argsType)
+	if len(methodSpec.argsType) > 0 {
+		for i := 0; i < len(methodSpec.argsType); i++ {
+			arg := reflect.New(methodSpec.argsType[i])
 
-	if errRead := codecReq.ReadRequest(args.Interface()); errRead != nil {
-		codecReq.WriteError(w, 400, NewError(E_BAD_PARAMS, errRead.Error()))
+			if methodSpec.argsType[i] != typeOfRequest {
+				if errRead := codecReq.ReadRequest(arg.Interface()); errRead != nil {
+					codecReq.WriteError(w, 400, NewError(E_BAD_PARAMS, errRead))
 
-		return
+					return
+				}
+			}
+
+			refValue = append(refValue, arg)
+		}
 	}
 
-	// Call the service method.
-	reply := reflect.New(methodSpec.replyType)
-
-	var refValue []reflect.Value
-
-	if methodSpec.paramOffset == 0 {
-		refValue = []reflect.Value{serviceSpec.rcvr, args, reply}
-	} else {
-		refValue = []reflect.Value{serviceSpec.rcvr, reflect.ValueOf(r), args, reply}
-	}
-
-	errValue := methodSpec.method.Func.Call(refValue)
+	retValues := methodSpec.method.Func.Call(refValue)
 
 	// Cast the result to error if needed.
-	var errResult *Error
+	var errResult error
 
-	errCust := errValue[0].Interface()
+	errInter := retValues[1].Interface()
 
-	if errCust != nil {
-		errResult = errCust.(*Error)
+	if errInter != nil {
+		errResult = errInter.(error)
 	}
 
 	// Prevents Internet Explorer from MIME-sniffing a response away
@@ -172,7 +171,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Encode the response.
 	if errResult == nil {
-		codecReq.WriteResponse(w, reply.Interface())
+		valRet := retValues[0].Interface()
+
+		codecReq.WriteResponse(w, valRet)
 	} else {
 		codecReq.WriteError(w, 400, errResult)
 	}
