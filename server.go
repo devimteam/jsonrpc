@@ -148,6 +148,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 					return
 				}
+			} else {
+				arg = reflect.ValueOf(r)
 			}
 
 			refValue = append(refValue, arg)
