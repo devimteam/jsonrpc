@@ -53,6 +53,7 @@ type Server struct {
 // XML. A codec is chosen based on the "Content-Type" header from the request,
 // excluding the charset definition.
 func (s *Server) RegisterCodec(codec Codec, contentType string) {
+
 	s.codecs[strings.ToLower(contentType)] = codec
 }
 
