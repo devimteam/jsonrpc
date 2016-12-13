@@ -2,9 +2,10 @@ package json2
 
 import (
 	"encoding/json"
-	"github.com/l-vitaly/jsonrpc"
 	"io"
 	"math/rand"
+
+	"github.com/l-vitaly/jsonrpc"
 )
 
 // ----------------------------------------------------------------------------

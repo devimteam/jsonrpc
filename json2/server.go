@@ -2,8 +2,10 @@ package json2
 
 import (
 	"encoding/json"
-	"github.com/l-vitaly/jsonrpc"
 	"net/http"
+
+	"github.com/l-vitaly/jsonrpc"
+	"github.com/mitchellh/mapstructure"
 )
 
 var Version = "2.0"
@@ -86,13 +88,11 @@ func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequ
 		err = &jsonrpc.Error{
 			Code:    jsonrpc.E_PARSE,
 			Message: err.Error(),
-			Data:    req,
 		}
 	} else if req.Version != Version {
 		err = &jsonrpc.Error{
 			Code:    jsonrpc.E_INVALID_REQ,
 			Message: "jsonrpc must be " + Version,
-			Data:    req,
 		}
 	}
 
@@ -134,16 +134,16 @@ func (c *CodecRequest) Method() (string, error) {
 // case, to the method's expected parameters.
 func (c *CodecRequest) ReadRequest(args interface{}) error {
 	if c.err == nil && c.request.Params != nil {
-		// Note: if c.request.Params is nil it's not an error, it's an optional member.
-		// JSON params structured object. Unmarshal to the args object.
-		if err := json.Unmarshal(*c.request.Params, args); err != nil {
-			// Clearly JSON params is not a structured object,
-			// fallback and attempt an unmarshal with JSON params as
-			// array value and RPC params is struct. Unmarshal into
-			// array containing the request struct.
-			params := [1]interface{}{args}
-
-			if err = json.Unmarshal(*c.request.Params, &params); err != nil {
+		var data map[string]interface{}
+		if err := json.Unmarshal(*c.request.Params, &data); err != nil {
+			c.err = &jsonrpc.Error{
+				Code:    jsonrpc.E_INVALID_REQ,
+				Message: err.Error(),
+				Data:    c.request.Params,
+			}
+		} else {
+			err := mapstructure.Decode(data, args)
+			if err != nil {
 				c.err = &jsonrpc.Error{
 					Code:    jsonrpc.E_INVALID_REQ,
 					Message: err.Error(),
@@ -171,7 +171,7 @@ func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) 
 
 	if !ok {
 		jsonErr = &jsonrpc.Error{
-			Code:    jsonrpc.E_SERVER,
+			Code:    jsonrpc.E_INVALID_REQ,
 			Message: err.Error(),
 		}
 	}
@@ -187,7 +187,7 @@ func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) 
 
 func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverResponse) {
 	// Id is null for notifications and they don't have a response.
-	if c.request.Id != nil {
+	if c.request.Id != nil || (res.Error != nil && (res.Error.Code == jsonrpc.E_PARSE || res.Error.Code == jsonrpc.E_INVALID_REQ)) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		encoder := json.NewEncoder(c.encoder.Encode(w))
 		err := encoder.Encode(res)
