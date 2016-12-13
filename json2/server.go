@@ -142,7 +142,13 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 				Data:    c.request.Params,
 			}
 		} else {
-			err := mapstructure.Decode(data, args)
+			decoder,_ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+				TagName:          "json",
+				Result:           args,
+				WeaklyTypedInput: false,
+			})
+
+			err := decoder.Decode(data)
 			if err != nil {
 				c.err = &jsonrpc.Error{
 					Code:    jsonrpc.E_INVALID_REQ,
