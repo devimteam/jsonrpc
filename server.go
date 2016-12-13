@@ -123,8 +123,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	method, errMethod := codecReq.Method()
 
 	if errMethod != nil {
-		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errMethod))
-
+		codecReq.WriteError(w, 400, errMethod)
 		return
 	}
 

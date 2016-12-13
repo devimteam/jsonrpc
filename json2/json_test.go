@@ -3,9 +3,10 @@ package json2
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/l-vitaly/jsonrpc"
 	"net/http"
 	"testing"
+
+	"github.com/l-vitaly/jsonrpc"
 )
 
 // ResponseRecorder is an implementation of http.ResponseWriter that
