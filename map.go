@@ -86,6 +86,10 @@ func (m *serviceMap) register(rcvr interface{}, name string) error {
 			args = append(args, arg.Elem())
 		}
 
+		if numIn-1 != len(args) {
+			continue
+		}
+
 		// Method needs two out: mixed, error.
 		if mtype.NumOut() != 2 {
 			continue
