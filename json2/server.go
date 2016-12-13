@@ -6,6 +6,8 @@ import (
 
 	"github.com/l-vitaly/jsonrpc"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
+	"time"
 )
 
 var Version = "2.0"
@@ -119,6 +121,13 @@ func (c *CodecRequest) Method() (string, error) {
 	return "", c.err
 }
 
+func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+    if t == reflect.TypeOf(time.Time{}) && f == reflect.TypeOf("") {
+        return time.Parse(time.RFC3339, data.(string))
+    }
+	return data, nil
+}
+
 // ReadRequest fills the request object for the RPC method.
 //
 // ReadRequest parses request parameters in two supported forms in
@@ -142,8 +151,9 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 				Data:    c.request.Params,
 			}
 		} else {
-			decoder,_ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-				TagName:          "json",
+			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+				DecodeHook:       c.decoder,
+				TagName:          "ms",
 				Result:           args,
 				WeaklyTypedInput: false,
 			})
