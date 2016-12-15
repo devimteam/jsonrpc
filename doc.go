@@ -1,5 +1,5 @@
 /*
-Package is a foundation for RPC over HTTP services, providing
+Package jsonrpc is a foundation for RPC over HTTP services, providing
 access to the exported methods of an object through HTTP requests.
 
 This package derives from the standard net/rpc package but uses a single HTTP

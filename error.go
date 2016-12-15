@@ -4,19 +4,28 @@ import (
 	"errors"
 )
 
+// ErrorCode JSON RPC error code type
 type ErrorCode int
 
 const (
-	E_PARSE       ErrorCode = -32700
-	E_INVALID_REQ ErrorCode = -32600
-	E_NO_METHOD   ErrorCode = -32601
-	E_BAD_PARAMS  ErrorCode = -32602
-	E_INTERNAL    ErrorCode = -32603
-	E_SERVER      ErrorCode = -32000
+	// ErrParse Invalid JSON was received by the server.
+	ErrParse ErrorCode = -32700
+	// ErrInvalidRequest The JSON sent is not a valid Request object.
+	ErrInvalidRequest ErrorCode = -32600
+	// ErrMethodNotFound The method does not exist / is not available.
+	ErrMethodNotFound ErrorCode = -32601
+	// ErrBadParams Invalid method parameter(s).
+	ErrBadParams ErrorCode = -32602
+	// ErrInternal Internal JSON-RPC error.
+	ErrInternal ErrorCode = -32603
+	// ErrServer Reserved for implementation-defined server-errors.
+	ErrServer ErrorCode = -32000
 )
 
+// ErrNullResult result is null
 var ErrNullResult = errors.New("result is null")
 
+// Error JSON RPC error structure
 type Error struct {
 	// A Number that indicates the error type that occurred.
 	Code ErrorCode `json:"code"`
@@ -29,6 +38,7 @@ type Error struct {
 	Data interface{} `json:"data,omitempty"`
 }
 
+// NewError create a new error
 func NewError(code ErrorCode, message interface{}) *Error {
 	strErr, ok := message.(string)
 

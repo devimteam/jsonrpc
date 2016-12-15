@@ -25,7 +25,7 @@ type clientRequest struct {
 
 	// The request id. This can be of any type. It is used to match the
 	// response with the request that it is replying to.
-	Id uint64 `json:"id"`
+	ID uint64 `json:"id"`
 }
 
 // clientResponse represents a JSON-RPC response returned to a client.
@@ -41,7 +41,7 @@ func EncodeClientRequest(method string, args interface{}) ([]byte, error) {
 		Version: "2.0",
 		Method:  method,
 		Params:  args,
-		Id:      uint64(rand.Int63()),
+		ID:      uint64(rand.Int63()),
 	}
 	return json.Marshal(c)
 }
@@ -60,7 +60,7 @@ func DecodeClientResponse(r io.Reader, reply interface{}) error {
 
 		if err := json.Unmarshal(*c.Error, jsonErr); err != nil {
 			return &jsonrpc.Error{
-				Code:    jsonrpc.E_SERVER,
+				Code:    jsonrpc.ErrServer,
 				Message: string(*c.Error),
 			}
 		}

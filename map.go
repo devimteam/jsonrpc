@@ -12,7 +12,8 @@ import (
 
 var (
 	// Precompute the reflect.Type of error and http.Request
-	typeOfError   = reflect.TypeOf((*error)(nil)).Elem()
+	typeOfError = reflect.TypeOf((*error)(nil)).Elem()
+
 	typeOfRequest = reflect.TypeOf((*http.Request)(nil)).Elem()
 )
 

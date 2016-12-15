@@ -60,7 +60,7 @@ func (rw *ResponseRecorder) Flush() {
 
 // ----------------------------------------------------------------------------
 
-var ErrResponseError = jsonrpc.NewError(jsonrpc.E_SERVER, "response error")
+var ErrResponseError = jsonrpc.NewError(jsonrpc.ErrServer, "response error")
 
 type Service1Request struct {
 	A int
