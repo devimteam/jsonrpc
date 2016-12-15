@@ -131,6 +131,7 @@ func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{})
 
 // ReadRequest fills the request object for the RPC method.
 //
+//
 // ReadRequest parses request parameters in two supported forms in
 // accordance with http://www.jsonrpc.org/specification#parameter_structures
 //
