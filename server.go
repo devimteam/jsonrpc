@@ -130,7 +130,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceSpec, methodSpec, errGet := s.services.get(method)
 
 	if errGet != nil {
-		codecReq.WriteError(w, 400, NewError(E_NO_METHOD, errGet))
+		codecReq.WriteError(w, 400, NewError(ErrMethodNotFound, errGet))
 
 		return
 	}
@@ -144,7 +144,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if methodSpec.argsType[i] != typeOfRequest {
 				if errRead := codecReq.ReadRequest(arg.Interface()); errRead != nil {
-					codecReq.WriteError(w, 400, NewError(E_BAD_PARAMS, errRead))
+					codecReq.WriteError(w, 400, NewError(ErrBadParams, errRead))
 
 					return
 				}
@@ -181,6 +181,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// WriteError send error to client
 func WriteError(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
