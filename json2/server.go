@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// Version JSON RPC current version
 var Version = "2.0"
 
 // ----------------------------------------------------------------------------
@@ -30,7 +31,7 @@ type serverRequest struct {
 	// The request id. MUST be a string, number or null.
 	// Our implementation will not do type checking for id.
 	// It will be copied as it is.
-	Id *json.RawMessage `json:"id"`
+	ID *json.RawMessage `json:"id"`
 }
 
 // serverResponse represents a JSON-RPC response returned by the server.
@@ -49,14 +50,14 @@ type serverResponse struct {
 	Error *jsonrpc.Error `json:"error,omitempty"`
 
 	// This must be the same id as the request it is responding to.
-	Id *json.RawMessage `json:"id"`
+	ID *json.RawMessage `json:"id"`
 }
 
 // ----------------------------------------------------------------------------
 // Codec
 // ----------------------------------------------------------------------------
 
-// NewcustomCodec returns a new JSON Codec based on passed encoder selector.
+// NewCustomCodec returns a new JSON Codec based on passed encoder selector.
 func NewCustomCodec(encSel jsonrpc.EncoderSelector) *Codec {
 	return &Codec{encSel: encSel}
 }
@@ -88,12 +89,12 @@ func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequ
 
 	if err != nil {
 		err = &jsonrpc.Error{
-			Code:    jsonrpc.E_PARSE,
+			Code:    jsonrpc.ErrParse,
 			Message: err.Error(),
 		}
 	} else if req.Version != Version {
 		err = &jsonrpc.Error{
-			Code:    jsonrpc.E_INVALID_REQ,
+			Code:    jsonrpc.ErrInvalidRequest,
 			Message: "jsonrpc must be " + Version,
 		}
 	}
@@ -122,9 +123,9 @@ func (c *CodecRequest) Method() (string, error) {
 }
 
 func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-    if t == reflect.TypeOf(time.Time{}) && f == reflect.TypeOf("") {
-        return time.Parse(time.RFC3339, data.(string))
-    }
+	if t == reflect.TypeOf(time.Time{}) && f == reflect.TypeOf("") {
+		return time.Parse(time.RFC3339, data.(string))
+	}
 	return data, nil
 }
 
@@ -146,7 +147,7 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 		var data map[string]interface{}
 		if err := json.Unmarshal(*c.request.Params, &data); err != nil {
 			c.err = &jsonrpc.Error{
-				Code:    jsonrpc.E_INVALID_REQ,
+				Code:    jsonrpc.ErrInvalidRequest,
 				Message: err.Error(),
 				Data:    c.request.Params,
 			}
@@ -161,7 +162,7 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 			err := decoder.Decode(data)
 			if err != nil {
 				c.err = &jsonrpc.Error{
-					Code:    jsonrpc.E_INVALID_REQ,
+					Code:    jsonrpc.ErrInvalidRequest,
 					Message: err.Error(),
 					Data:    c.request.Params,
 				}
@@ -177,17 +178,18 @@ func (c *CodecRequest) WriteResponse(w http.ResponseWriter, reply interface{}) {
 	res := &serverResponse{
 		Version: Version,
 		Result:  reply,
-		Id:      c.request.Id,
+		ID:      c.request.ID,
 	}
 	c.writeServerResponse(w, res)
 }
 
+// WriteError send error response.
 func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) {
 	jsonErr, ok := err.(*jsonrpc.Error)
 
 	if !ok {
 		jsonErr = &jsonrpc.Error{
-			Code:    jsonrpc.E_INVALID_REQ,
+			Code:    jsonrpc.ErrInvalidRequest,
 			Message: err.Error(),
 		}
 	}
@@ -195,7 +197,7 @@ func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) 
 	res := &serverResponse{
 		Version: Version,
 		Error:   jsonErr,
-		Id:      c.request.Id,
+		ID:      c.request.ID,
 	}
 
 	c.writeServerResponse(w, res)
@@ -203,7 +205,7 @@ func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) 
 
 func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverResponse) {
 	// Id is null for notifications and they don't have a response.
-	if c.request.Id != nil || (res.Error != nil && (res.Error.Code == jsonrpc.E_PARSE || res.Error.Code == jsonrpc.E_INVALID_REQ)) {
+	if c.request.ID != nil || (res.Error != nil && (res.Error.Code == jsonrpc.ErrParse || res.Error.Code == jsonrpc.ErrInvalidRequest)) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		encoder := json.NewEncoder(c.encoder.Encode(w))
 		err := encoder.Encode(res)
@@ -215,5 +217,6 @@ func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverRes
 	}
 }
 
+// EmptyResponse empty response
 type EmptyResponse struct {
 }
