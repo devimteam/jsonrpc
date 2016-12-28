@@ -53,7 +53,6 @@ type Server struct {
 // XML. A codec is chosen based on the "Content-Type" header from the request,
 // excluding the charset definition.
 func (s *Server) RegisterCodec(codec Codec, contentType string) {
-
 	s.codecs[strings.ToLower(contentType)] = codec
 }
 
@@ -112,7 +111,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if codec = s.codecs[strings.ToLower(contentType)]; codec == nil {
 		WriteError(w, 415, "rpc: unrecognized Content-Type: "+contentType)
-
 		return
 	}
 
@@ -121,22 +119,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Get service method to be called.
 	method, errMethod := codecReq.Method()
-
 	if errMethod != nil {
 		codecReq.WriteError(w, 400, errMethod)
 		return
 	}
-
 	serviceSpec, methodSpec, errGet := s.services.get(method)
-
 	if errGet != nil {
-		codecReq.WriteError(w, 400, NewError(ErrMethodNotFound, errGet))
-
+		codecReq.WriteError(w, 400, errGet)
 		return
 	}
-
 	refValue := []reflect.Value{serviceSpec.rcvr}
-
 	// Decode the args.
 	if len(methodSpec.argsType) > 0 {
 		for i := 0; i < len(methodSpec.argsType); i++ {
@@ -144,8 +136,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if methodSpec.argsType[i] != typeOfRequest {
 				if errRead := codecReq.ReadRequest(arg.Interface()); errRead != nil {
-					codecReq.WriteError(w, 400, NewError(ErrBadParams, errRead))
-
+					codecReq.WriteError(w, 400, errRead)
 					return
 				}
 			} else {
@@ -160,9 +151,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Cast the result to error if needed.
 	var errResult error
-
 	errInter := retValues[1].Interface()
-
 	if errInter != nil {
 		errResult = errInter.(error)
 	}
