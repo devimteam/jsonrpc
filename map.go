@@ -8,13 +8,19 @@ import (
 	"sync"
 	"unicode"
 	"unicode/utf8"
+    "github.com/pkg/errors"
 )
 
 var (
 	// Precompute the reflect.Type of error and http.Request
 	typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-
 	typeOfRequest = reflect.TypeOf((*http.Request)(nil)).Elem()
+)
+
+var (
+    ErrRequestIllFormed = errors.New("service/method request ill-formed")
+    ErrServiceNotFound = errors.New("can't find service")
+    ErrMethodNotFound = errors.New("rpc: can't find method")
 )
 
 // ----------------------------------------------------------------------------
@@ -130,11 +136,8 @@ func (m *serviceMap) register(rcvr interface{}, name string) error {
 // The method name uses a dotted notation as in "Service.Method".
 func (m *serviceMap) get(method string) (*service, *serviceMethod, error) {
 	parts := strings.Split(method, ".")
-
 	if len(parts) != 2 {
-		err := fmt.Errorf("rpc: service/method request ill-formed: %q", method)
-
-		return nil, nil, err
+		return nil, nil, ErrRequestIllFormed
 	}
 
 	m.mutex.Lock()
@@ -142,17 +145,12 @@ func (m *serviceMap) get(method string) (*service, *serviceMethod, error) {
 	m.mutex.Unlock()
 
 	if service == nil {
-		err := fmt.Errorf("rpc: can't find service %q", method)
-
-		return nil, nil, err
+		return nil, nil, ErrServiceNotFound
 	}
 
 	serviceMethod := service.methods[parts[1]]
-
 	if serviceMethod == nil {
-		err := fmt.Errorf("rpc: can't find method %q", method)
-
-		return nil, nil, err
+		return nil, nil, ErrMethodNotFound
 	}
 
 	return service, serviceMethod, nil
@@ -161,7 +159,6 @@ func (m *serviceMap) get(method string) (*service, *serviceMethod, error) {
 // isExported returns true of a string is an exported (upper case) name.
 func isExported(name string) bool {
 	rune, _ := utf8.DecodeRuneInString(name)
-
 	return unicode.IsUpper(rune)
 }
 

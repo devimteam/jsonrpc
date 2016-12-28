@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"math/rand"
-
-	"github.com/l-vitaly/jsonrpc"
 )
 
 // ----------------------------------------------------------------------------
@@ -56,20 +54,19 @@ func DecodeClientResponse(r io.Reader, reply interface{}) error {
 	}
 
 	if c.Error != nil {
-		jsonErr := &jsonrpc.Error{}
+		jsonErr := &Error{}
 
 		if err := json.Unmarshal(*c.Error, jsonErr); err != nil {
-			return &jsonrpc.Error{
-				Code:    jsonrpc.ErrServer,
+			return &Error{
+				Code:    ErrServer,
 				Message: string(*c.Error),
 			}
 		}
-
 		return jsonErr
 	}
 
 	if c.Result == nil {
-		return jsonrpc.ErrNullResult
+		return ErrNullResult
 	}
 
 	return json.Unmarshal(*c.Result, reply)

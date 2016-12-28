@@ -60,7 +60,7 @@ func (rw *ResponseRecorder) Flush() {
 
 // ----------------------------------------------------------------------------
 
-var ErrResponseError = jsonrpc.NewError(jsonrpc.ErrServer, "response error")
+var ErrResponseError = NewError(ErrServer, "response error")
 
 type Service1Request struct {
 	A int
@@ -195,11 +195,11 @@ func TestService(t *testing.T) {
 		ID: 1,
 	}
 
-	if err := executeRaw(t, s, &req, &res); err != nil {
+	if err := executeRaw(t, s, &req, &res); err == nil {
 		t.Error(err)
 	}
 
-	if res.Result != Service1DefaultResponse {
+	if res.Result != 0 {
 		t.Errorf(
 			"Wrong response: got %v, want %v", res.Result, Service1DefaultResponse,
 		)
@@ -214,7 +214,7 @@ func TestDecodeNullResult(t *testing.T) {
 
 	err := DecodeClientResponse(reader, &result)
 
-	if err != jsonrpc.ErrNullResult {
+	if err != ErrNullResult {
 		t.Error("Expected err no be ErrNullResult, but got:", err)
 	}
 

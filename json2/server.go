@@ -3,11 +3,11 @@ package json2
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
+	"time"
 
 	"github.com/l-vitaly/jsonrpc"
 	"github.com/mitchellh/mapstructure"
-	"reflect"
-	"time"
 )
 
 // Version JSON RPC current version
@@ -47,7 +47,7 @@ type serverResponse struct {
 	// An Error object if there was an error invoking the method. It must be
 	// null if there was no error.
 	// As per spec the member will be omitted if there was no error.
-	Error *jsonrpc.Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// This must be the same id as the request it is responding to.
 	ID *json.RawMessage `json:"id"`
@@ -88,13 +88,13 @@ func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequ
 	err := json.NewDecoder(r.Body).Decode(req)
 
 	if err != nil {
-		err = &jsonrpc.Error{
-			Code:    jsonrpc.ErrParse,
+		err = &Error{
+			Code:    ErrParse,
 			Message: err.Error(),
 		}
 	} else if req.Version != Version {
-		err = &jsonrpc.Error{
-			Code:    jsonrpc.ErrInvalidRequest,
+		err = &Error{
+			Code:    ErrInvalidRequest,
 			Message: "jsonrpc must be " + Version,
 		}
 	}
@@ -131,6 +131,7 @@ func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{})
 
 // ReadRequest fills the request object for the RPC method.
 //
+//
 // ReadRequest parses request parameters in two supported forms in
 // accordance with http://www.jsonrpc.org/specification#parameter_structures
 //
@@ -146,8 +147,8 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 	if c.err == nil && c.request.Params != nil {
 		var data map[string]interface{}
 		if err := json.Unmarshal(*c.request.Params, &data); err != nil {
-			c.err = &jsonrpc.Error{
-				Code:    jsonrpc.ErrInvalidRequest,
+			c.err = &Error{
+				Code:    ErrInvalidRequest,
 				Message: err.Error(),
 				Data:    c.request.Params,
 			}
@@ -161,15 +162,14 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 
 			err := decoder.Decode(data)
 			if err != nil {
-				c.err = &jsonrpc.Error{
-					Code:    jsonrpc.ErrInvalidRequest,
+				c.err = &Error{
+					Code:    ErrBadParams,
 					Message: err.Error(),
 					Data:    c.request.Params,
 				}
 			}
 		}
 	}
-
 	return c.err
 }
 
@@ -185,11 +185,17 @@ func (c *CodecRequest) WriteResponse(w http.ResponseWriter, reply interface{}) {
 
 // WriteError send error response.
 func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) {
-	jsonErr, ok := err.(*jsonrpc.Error)
+	jsonErr, ok := err.(*Error)
 
 	if !ok {
-		jsonErr = &jsonrpc.Error{
-			Code:    jsonrpc.ErrInvalidRequest,
+		code := ErrInvalidRequest
+
+		if err == jsonrpc.ErrMethodNotFound || err == jsonrpc.ErrServiceNotFound {
+			code = ErrMethodNotFound
+		}
+
+		jsonErr = &Error{
+			Code:    code,
 			Message: err.Error(),
 		}
 	}
@@ -205,11 +211,10 @@ func (c *CodecRequest) WriteError(w http.ResponseWriter, status int, err error) 
 
 func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverResponse) {
 	// Id is null for notifications and they don't have a response.
-	if c.request.ID != nil || (res.Error != nil && (res.Error.Code == jsonrpc.ErrParse || res.Error.Code == jsonrpc.ErrInvalidRequest)) {
+	if c.request.ID != nil || (res.Error != nil && (res.Error.Code == ErrParse || res.Error.Code == ErrInvalidRequest)) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		encoder := json.NewEncoder(c.encoder.Encode(w))
 		err := encoder.Encode(res)
-
 		// Not sure in which case will this happen. But seems harmless.
 		if err != nil {
 			jsonrpc.WriteError(w, 400, err.Error())
