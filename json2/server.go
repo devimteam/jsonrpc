@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/l-vitaly/jsonrpc"
 	"github.com/mitchellh/mapstructure"
 )
@@ -83,9 +85,14 @@ func (c *Codec) NewRequest(r *http.Request) jsonrpc.CodecRequest {
 
 // newCodecRequest returns a new CodecRequest.
 func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequest {
+	defer r.Body.Close()
+
 	// Decode the request body and check if RPC method is valid.
+	body, _ := ioutil.ReadAll(r.Body)
 	req := new(serverRequest)
-	err := json.NewDecoder(r.Body).Decode(req)
+	err := json.Unmarshal(body, req)
+
+
 
 	if err != nil {
 		err = &Error{
@@ -98,10 +105,7 @@ func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequ
 			Message: "jsonrpc must be " + Version,
 		}
 	}
-
-	r.Body.Close()
-
-	return &CodecRequest{request: req, err: err, encoder: encoder}
+	return &CodecRequest{request: req, err: err, encoder: encoder, body: body}
 }
 
 // CodecRequest decodes and encodes a single request.
@@ -109,6 +113,11 @@ type CodecRequest struct {
 	request *serverRequest
 	err     error
 	encoder jsonrpc.Encoder
+	body    []byte
+}
+
+func (c *CodecRequest) Body() []byte {
+	return c.body
 }
 
 // Method returns the RPC method for the current request.

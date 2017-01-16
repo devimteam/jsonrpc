@@ -27,24 +27,47 @@ type CodecRequest interface {
 	WriteResponse(http.ResponseWriter, interface{})
 	// Writes an error produced by the server.
 	WriteError(w http.ResponseWriter, status int, err error)
+	// Get raw body
+	Body() []byte
 }
 
 // ----------------------------------------------------------------------------
 // Server
 // ----------------------------------------------------------------------------
 
-// NewServer returns a new RPC server.
-func NewServer() *Server {
-	return &Server{
-		codecs:   make(map[string]Codec),
-		services: new(serviceMap),
-	}
+type RequestFunc func(*RequestInfo)
+
+type RequestInfo struct {
+	Method string
+	Header http.Header
+	Body   []byte
 }
 
 // Server serves registered RPC services using registered codecs.
 type Server struct {
 	codecs   map[string]Codec
 	services *serviceMap
+	before   RequestFunc
+}
+
+type ServerOption func(*Server)
+
+func ServerBefore(before RequestFunc) ServerOption {
+	return func(s *Server) { s.before = before }
+}
+
+// NewServer returns a new RPC server.
+func NewServer(options ...ServerOption) *Server {
+	s := &Server{
+		codecs:   make(map[string]Codec),
+		services: new(serviceMap),
+	}
+
+	for _, option := range options {
+		option(s)
+	}
+
+	return s
 }
 
 // RegisterCodec adds a new codec to the server.
@@ -116,6 +139,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new codec request.
 	codecReq := codec.NewRequest(r)
+
+	// Before request
+	reqInfo := &RequestInfo{
+		Method: r.Method,
+		Header: r.Header,
+		Body:   codecReq.Body(),
+	}
+
+	s.before(reqInfo)
 
 	// Get service method to be called.
 	method, errMethod := codecReq.Method()
