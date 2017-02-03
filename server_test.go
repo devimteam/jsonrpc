@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"testing"
@@ -62,12 +63,17 @@ type MockCodec struct {
 	A, B int
 }
 
-func (c MockCodec) NewRequest(*http.Request) CodecRequest {
-	return MockCodecRequest{c.A, c.B}
+func (c MockCodec) NewRequest(r *http.Request) CodecRequest {
+    var body []byte
+    if r.Body != nil {
+        body, _ = ioutil.ReadAll(r.Body)
+    }
+	return MockCodecRequest{c.A, c.B, body}
 }
 
 type MockCodecRequest struct {
 	A, B int
+	body []byte
 }
 
 func (r MockCodecRequest) Method() (string, error) {
@@ -90,6 +96,10 @@ func (r MockCodecRequest) WriteResponse(w http.ResponseWriter, reply interface{}
 func (r MockCodecRequest) WriteError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 	w.Write([]byte(err.Error()))
+}
+
+func (r MockCodecRequest) Body() []byte {
+	return r.body
 }
 
 type MockResponseWriter struct {
