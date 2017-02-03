@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"reflect"
 	"time"
-
 	"io/ioutil"
 
 	"github.com/l-vitaly/jsonrpc"
@@ -228,7 +227,10 @@ func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverRes
 		if err != nil {
 			jsonrpc.WriteError(w, 400, err.Error())
 		}
-	}
+	} else {
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        w.Header().Set("Json-Rpc", "notify")
+    }
 }
 
 // EmptyResponse empty response

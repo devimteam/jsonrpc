@@ -147,7 +147,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Body:   codecReq.Body(),
 	}
 
-	s.before(reqInfo)
+    if s.before != nil {
+        s.before(reqInfo)
+    }
 
 	// Get service method to be called.
 	method, errMethod := codecReq.Method()
@@ -195,7 +197,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Encode the response.
 	if errResult == nil {
 		valRet := retValues[0].Interface()
-
 		codecReq.WriteResponse(w, valRet)
 	} else {
 		codecReq.WriteError(w, 400, errResult)
