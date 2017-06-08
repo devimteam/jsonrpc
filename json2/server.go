@@ -2,10 +2,10 @@ package json2
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"time"
-	"io/ioutil"
 
 	"github.com/l-vitaly/jsonrpc"
 	"github.com/mitchellh/mapstructure"
@@ -54,28 +54,41 @@ type serverResponse struct {
 	ID *json.RawMessage `json:"id"`
 }
 
+type CodecOption func(*Codec)
+
 // ----------------------------------------------------------------------------
 // Codec
 // ----------------------------------------------------------------------------
 
 // NewCustomCodec returns a new JSON Codec based on passed encoder selector.
-func NewCustomCodec(encSel jsonrpc.EncoderSelector) *Codec {
-	return &Codec{encSel: encSel}
+func NewCustomCodec(encSel jsonrpc.EncoderSelector, options ...CodecOption) *Codec {
+	c := &Codec{encSel: encSel}
+	for _, o := range options {
+		o(c)
+	}
+	return c
 }
 
 // NewCodec returns a new JSON Codec.
-func NewCodec() *Codec {
-	return NewCustomCodec(jsonrpc.DefaultEncoderSelector)
+func NewCodec(options ...CodecOption) *Codec {
+	return NewCustomCodec(jsonrpc.DefaultEncoderSelector, options...)
+}
+
+func SetDateTimeFormat(format string) CodecOption {
+	return func(c *Codec) {
+		c.dateTimeFormat = format
+	}
 }
 
 // Codec creates a CodecRequest to process each request.
 type Codec struct {
-	encSel jsonrpc.EncoderSelector
+	encSel         jsonrpc.EncoderSelector
+	dateTimeFormat string
 }
 
 // NewRequest returns a CodecRequest.
 func (c *Codec) NewRequest(r *http.Request) jsonrpc.CodecRequest {
-	return newCodecRequest(r, c.encSel.Select(r))
+	return newCodecRequest(r, c.encSel.Select(r), c.dateTimeFormat)
 }
 
 // ----------------------------------------------------------------------------
@@ -83,15 +96,13 @@ func (c *Codec) NewRequest(r *http.Request) jsonrpc.CodecRequest {
 // ----------------------------------------------------------------------------
 
 // newCodecRequest returns a new CodecRequest.
-func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequest {
+func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder, dateTimeFormat string) jsonrpc.CodecRequest {
 	defer r.Body.Close()
 
 	// Decode the request body and check if RPC method is valid.
 	body, _ := ioutil.ReadAll(r.Body)
 	req := new(serverRequest)
 	err := json.Unmarshal(body, req)
-
-
 
 	if err != nil {
 		err = &Error{
@@ -104,15 +115,16 @@ func newCodecRequest(r *http.Request, encoder jsonrpc.Encoder) jsonrpc.CodecRequ
 			Message: "jsonrpc must be " + Version,
 		}
 	}
-	return &CodecRequest{request: req, err: err, encoder: encoder, body: body}
+	return &CodecRequest{request: req, err: err, encoder: encoder, body: body, dateTimeFormat: dateTimeFormat}
 }
 
 // CodecRequest decodes and encodes a single request.
 type CodecRequest struct {
-	request *serverRequest
-	err     error
-	encoder jsonrpc.Encoder
-	body    []byte
+	request        *serverRequest
+	err            error
+	encoder        jsonrpc.Encoder
+	body           []byte
+	dateTimeFormat string
 }
 
 func (c *CodecRequest) Body() []byte {
@@ -132,7 +144,11 @@ func (c *CodecRequest) Method() (string, error) {
 
 func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
 	if t == reflect.TypeOf(time.Time{}) && f == reflect.TypeOf("") {
-		return time.Parse(time.RFC3339, data.(string))
+		format := time.RFC3339
+		if c.dateTimeFormat != "" {
+			format = c.dateTimeFormat
+		}
+		return time.Parse(format, data.(string))
 	}
 	return data, nil
 }
@@ -228,9 +244,9 @@ func (c *CodecRequest) writeServerResponse(w http.ResponseWriter, res *serverRes
 			jsonrpc.WriteError(w, 400, err.Error())
 		}
 	} else {
-        w.Header().Set("Content-Type", "application/json; charset=utf-8")
-        w.Header().Set("Json-Rpc", "notify")
-    }
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Json-Rpc", "notify")
+	}
 }
 
 // EmptyResponse empty response
