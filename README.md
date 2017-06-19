@@ -13,20 +13,20 @@ JSONRPC это реализация протокола JSONRPC v2 для Go.
 
 Настройка сервера и регистрация кодека и сервиса:
 ``` 
-	import (
-		"http"
-		"github.com/l-vitaly/jsonrpc"
-		"github.com/l-vitaly/jsonrpc/json"
-	)
+import (
+    "http"
+    
+    "github.com/l-vitaly/jsonrpc"
+    "github.com/l-vitaly/jsonrpc/json"
+)
 
-	func init() {
-		s := rpc.NewServer()
-		
-		s.RegisterCodec(json2.NewCodec(), "application/json")
-		s.RegisterService(new(HelloService), "")
-		
-		http.Handle("/rpc", s)
-	}
+func init() {
+    s := rpc.NewServer()   
+    s.RegisterCodec(json2.NewCodec(), "application/json")
+    s.RegisterService(new(HelloService), "")
+    
+    http.Handle("/rpc", s)
+}
 ```
 
 Этот сервер обрабатывает запросы для "/rpc" с использованием кодека JSON2.
@@ -40,41 +40,35 @@ JSONRPC это реализация протокола JSONRPC v2 для Go.
 Определим простой сервис:
 
 ```
-	type HelloArgs struct {
-		Who string
-	}
+type HelloReq struct {
+    Who string
+}
 
-	type HelloReply struct {
-		Message string
-	}
+type HelloResp struct {
+    Message string
+}
 
-	type PingReply struct {
-		Message string
-	}
+type PingResp struct {
+    Message string
+}
 
-	type HelloService struct {}
+type HelloService struct {}
 
-	func (h *HelloService) Say(r *http.Request, args *HelloArgs, reply *HelloReply) jsonrpc.Error {
-		reply.Message = "Hello, " + args.Who + "!"
+func (h *HelloService) Say(r *http.Request, req *HelloReq) (interface{}, error) { 
+    return HelloResp{Who: "Hello, " + req.Who + "!"}, nil
+}
 
-		return nil
-	}
-
-	func (h *HelloService) Ping(args *HelloArgs, reply *PingReply) jsonrpc.Error {
-		reply.Message = "Pong"
-
-		return nil
-	}
+func (h *HelloService) Ping(r *http.Request) (interface{}, error) {
+    return PingResp{Message: "Pong"}, nil
+}
 ```
 
-Приведенный выше пример определяет сервис с 
-помощью методов "HelloService.Say", "HelloService.Ping".
+Приведенный выше пример определяет сервис с методами "HelloService.Say", "HelloService.Ping".
 
 Медоты сервиса будут доступны если следуют этим правилам:
 
 - Имя метода публичное.
-- Метод имеет три аргумента (или два, *http.Request опционально): *http.Request, *args, *reply.
-- Все три аргумента являются указателями.
-- Метод имеет тип возвращаемого значения jsonrpc.Error.
+- Метод может три возможные сигнатуры: без агрументов, `*http.Request`, `*http.Request, *interface{}`.
+- Метод имеет два типа возвращаемого значения interface{}, error.
 
 Все другие методы игнорируются.

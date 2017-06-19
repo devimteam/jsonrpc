@@ -147,9 +147,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Body:   codecReq.Body(),
 	}
 
-    if s.before != nil {
-        s.before(reqInfo)
-    }
+	if s.before != nil {
+		s.before(reqInfo)
+	}
 
 	// Get service method to be called.
 	method, errMethod := codecReq.Method()
