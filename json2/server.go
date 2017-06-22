@@ -138,7 +138,6 @@ func (c *CodecRequest) Method() (string, error) {
 	if c.err == nil {
 		return c.request.Method, nil
 	}
-
 	return "", c.err
 }
 
@@ -148,7 +147,11 @@ func (c *CodecRequest) decoder(f reflect.Type, t reflect.Type, data interface{})
 		if c.dateTimeFormat != "" {
 			format = c.dateTimeFormat
 		}
-		return time.Parse(format, data.(string))
+		res, err := time.Parse(format, data.(string))
+		if err != nil {
+            return time.Time{}, nil
+		}
+        return res, nil
 	}
 	return data, nil
 }
