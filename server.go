@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -35,25 +36,25 @@ type CodecRequest interface {
 // Server
 // ----------------------------------------------------------------------------
 
-type RequestFunc func(*RequestInfo)
-
-type RequestInfo struct {
-	Method string
-	Header http.Header
-	Body   []byte
-}
+type ServerBeforeFunc func(ctx context.Context, method string, header http.Header, req CodecRequest) context.Context
+type ServerAfterFunc func()
 
 // Server serves registered RPC services using registered codecs.
 type Server struct {
 	codecs   map[string]Codec
 	services *serviceMap
-	before   RequestFunc
+	before   []ServerBeforeFunc
+	after    []ServerAfterFunc
 }
 
 type ServerOption func(*Server)
 
-func ServerBefore(before RequestFunc) ServerOption {
-	return func(s *Server) { s.before = before }
+func ServerBefore(before ServerBeforeFunc) ServerOption {
+	return func(s *Server) { s.before = append(s.before, before) }
+}
+
+func ServerAfter(after ServerAfterFunc) ServerOption {
+	return func(s *Server) { s.after = append(s.after, after) }
 }
 
 // NewServer returns a new RPC server.
@@ -62,11 +63,9 @@ func NewServer(options ...ServerOption) *Server {
 		codecs:   make(map[string]Codec),
 		services: new(serviceMap),
 	}
-
 	for _, option := range options {
 		option(s)
 	}
-
 	return s
 }
 
@@ -106,15 +105,15 @@ func (s *Server) HasMethod(method string) bool {
 	if _, _, err := s.services.get(method); err == nil {
 		return true
 	}
-
 	return false
 }
 
 // ServeHTTP
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	if r.Method != "POST" {
 		WriteError(w, 405, "rpc: POST method required, received "+r.Method)
-
 		return
 	}
 	contentType := r.Header.Get("Content-Type")
@@ -140,23 +139,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create a new codec request.
 	codecReq := codec.NewRequest(r)
 
-	// Before request
-	reqInfo := &RequestInfo{
-		Method: r.Method,
-		Header: r.Header,
-		Body:   codecReq.Body(),
-	}
-
-	if s.before != nil {
-		s.before(reqInfo)
-	}
-
 	// Get service method to be called.
 	method, errMethod := codecReq.Method()
 	if errMethod != nil {
 		codecReq.WriteError(w, 400, errMethod)
 		return
 	}
+
+    for _, before := range s.before {
+        ctx = before(ctx, method, r.Header, codecReq)
+    }
+
 	serviceSpec, methodSpec, errGet := s.services.get(method)
 	if errGet != nil {
 		codecReq.WriteError(w, 400, errGet)
@@ -168,13 +161,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < len(methodSpec.argsType); i++ {
 			arg := reflect.New(methodSpec.argsType[i])
 
-			if methodSpec.argsType[i] != typeOfRequest {
+			if methodSpec.argsType[i] != typeOfContext {
 				if errRead := codecReq.ReadRequest(arg.Interface()); errRead != nil {
 					codecReq.WriteError(w, 400, errRead)
 					return
 				}
 			} else {
-				arg = reflect.ValueOf(r)
+				arg = reflect.ValueOf(ctx)
 			}
 
 			refValue = append(refValue, arg)

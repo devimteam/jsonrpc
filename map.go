@@ -1,26 +1,27 @@
 package jsonrpc
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 	"sync"
 	"unicode"
 	"unicode/utf8"
-    "github.com/pkg/errors"
+
+	"github.com/pkg/errors"
 )
 
 var (
 	// Precompute the reflect.Type of error and http.Request
-	typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-	typeOfRequest = reflect.TypeOf((*http.Request)(nil)).Elem()
+	typeOfError   = reflect.TypeOf((*error)(nil)).Elem()
+	typeOfContext = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
 var (
-    ErrRequestIllFormed = errors.New("service/method request ill-formed")
-    ErrServiceNotFound = errors.New("can't find service")
-    ErrMethodNotFound = errors.New("rpc: can't find method")
+	ErrRequestIllFormed = errors.New("service/method request ill-formed")
+	ErrServiceNotFound  = errors.New("can't find service")
+	ErrMethodNotFound   = errors.New("rpc: can't find method")
 )
 
 // ----------------------------------------------------------------------------
@@ -85,27 +86,24 @@ func (m *serviceMap) register(rcvr interface{}, name string) error {
 
 		for i := 1; i < numIn; i++ {
 			arg := mtype.In(i)
-
-			if arg.Kind() != reflect.Ptr || !isExportedOrBuiltin(arg) {
-				continue
+			if arg.Kind() != reflect.Interface {
+				if arg.Kind() != reflect.Ptr || !isExportedOrBuiltin(arg) {
+					continue
+				}
+				arg = arg.Elem()
 			}
-
-			args = append(args, arg.Elem())
+			args = append(args, arg)
 		}
-
 		if numIn-1 != len(args) {
 			continue
 		}
-
 		// Method needs two out: mixed, error.
 		if mtype.NumOut() != 2 {
 			continue
 		}
-
 		if returnType := mtype.Out(1); returnType != typeOfError {
 			continue
 		}
-
 		s.methods[method.Name] = &serviceMethod{
 			method:   method,
 			argsType: args,
@@ -167,7 +165,6 @@ func isExportedOrBuiltin(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-
 	// PkgPath will be non-empty even for an exported type,
 	// so we need to check the type name as well.
 	return isExported(t.Name()) || t.PkgPath() == ""
