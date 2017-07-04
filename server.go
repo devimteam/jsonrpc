@@ -37,24 +37,18 @@ type CodecRequest interface {
 // ----------------------------------------------------------------------------
 
 type ServerBeforeFunc func(ctx context.Context, method string, header http.Header, req CodecRequest) context.Context
-type ServerAfterFunc func()
 
 // Server serves registered RPC services using registered codecs.
 type Server struct {
 	codecs   map[string]Codec
 	services *serviceMap
 	before   []ServerBeforeFunc
-	after    []ServerAfterFunc
 }
 
 type ServerOption func(*Server)
 
 func ServerBefore(before ServerBeforeFunc) ServerOption {
 	return func(s *Server) { s.before = append(s.before, before) }
-}
-
-func ServerAfter(after ServerAfterFunc) ServerOption {
-	return func(s *Server) { s.after = append(s.after, after) }
 }
 
 // NewServer returns a new RPC server.
