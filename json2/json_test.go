@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/l-vitaly/jsonrpc"
+	"github.com/devimteam/jsonrpc"
 )
 
 // ResponseRecorder is an implementation of http.ResponseWriter that

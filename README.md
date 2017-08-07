@@ -16,8 +16,8 @@ JSONRPC это реализация протокола JSONRPC v2 для Go.
 import (
     "http"
     
-    "github.com/l-vitaly/jsonrpc"
-    "github.com/l-vitaly/jsonrpc/json"
+    "github.com/devimteam/jsonrpc"
+    "github.com/devimteam/jsonrpc/json"
 )
 
 func init() {

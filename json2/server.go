@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/l-vitaly/jsonrpc"
+	"github.com/devimteam/jsonrpc"
 	"github.com/mitchellh/mapstructure"
 )
 

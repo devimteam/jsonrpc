@@ -15,8 +15,8 @@ Let's setup a server and register a codec and service:
 
 	import (
 		"http"
-		"github.com/l-vitaly/jsonrpc"
-		"github.com/l-vitaly/jsonrpc/json"
+		"github.com/devimteam/jsonrpc"
+		"github.com/devimteam/jsonrpc/json"
 	)
 
 	func init() {
